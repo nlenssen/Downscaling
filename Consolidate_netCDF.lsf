@@ -1,0 +1,91 @@
+#!/bin/csh
+#
+# $Id: Consolidate_netCDF.lsf,v 1.1 2008/05/02 15:47:10 thoar Exp $
+#----------------------------------------------------------------------
+# LSF options for BSUB
+#
+### -J      job name 
+### -o      output listing filename 
+### -q      queue
+### -N -u   mail this user when job finishes
+### -n      number of processors  (really)
+### -W      wall-clock hours:minutes required
+#
+#----------------------------------------------------------------------
+#
+#BXXX -b 23:30
+#BSUB -J consolidate
+#BSUB -o consolidate.%J.log
+#BSUB -q standby
+#BSUB -N -u ${USER}@ucar.edu
+#BSUB -n 1
+#BSUB -R "span[ptile=1]"
+#BSUB -W 3:00
+#BSUB -m  "cr0128en cr0129en cr0130en cr0131en cr0132en cr0133en cr0134en cr0135en cr0136en cr0137en cr0138en cr0139en cr0140en cr0141en cr0202en cr0201en"
+#
+#----------------------------------------------------------------------
+
+cd /ptmp/thoar/downscaling
+
+set ORGDIR = /ptmp/thoar/downscaling/TAS
+set    EXP =  tas_A1.PIcntrl_2.CCSM.atmm
+set  OBASE = ${EXP}.0300-01_cat_0799-12
+set  FBASE = ${EXP}.0600-01_cat_0699-12
+
+#----------------------------------------------------------------------
+# Extract and then append the time_bnds array and all the original metadata
+#----------------------------------------------------------------------
+
+ncks -v height ${ORGDIR}/${OBASE}.nc ${EXP}.height.nc
+
+ncrename -a table_id,CCSM_table_id \
+         -a acknowledgment,CCSM_acknowledgment \
+         -a references,CCSM_references \
+         -a comment,CCSM_comment \
+         -a history,CCSM_history \
+         -a Conventions,CCSM_Conventions \
+         -a project_id,CCSM_project_id \
+         -a contact,CCSM_contact \
+         -a source,CCSM_source \
+         -a institution,CCSM_institution \
+         -a title,CCSM_title \
+         -a experiment_id,CCSM_experiment_id \
+         -a realization,CCSM_realization \
+         ${EXP}.height.nc
+
+ncatted -O -h -a history,global,o,c,"preserving history from original CCSM data\n" \
+                             ${EXP}.height.nc
+
+#----------------------------------------------------------------------
+# Remove the bnds "units" attribute which is apparently causing difficulties
+# for the GIS crowd and add the original metadata.
+#----------------------------------------------------------------------
+
+foreach FILE ( tas_A1.PIcntrl_2.CCSM.atmm.600-01_cat_609-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.610-01_cat_619-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.620-01_cat_629-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.630-01_cat_639-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.640-01_cat_649-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.650-01_cat_659-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.660-01_cat_669-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.670-01_cat_679-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.680-01_cat_689-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.690-01_cat_699-12.downscaled.nc )
+
+   ncatted       -a units,bnds,d,c,""      ${FILE}
+   ncatted -O -h -a history,global,o,c," " ${FILE}
+   ncks -A ${EXP}.height.nc                ${FILE}
+end
+
+ncrcat tas_A1.PIcntrl_2.CCSM.atmm.600-01_cat_609-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.610-01_cat_619-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.620-01_cat_629-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.630-01_cat_639-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.640-01_cat_649-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.650-01_cat_659-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.660-01_cat_669-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.670-01_cat_679-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.680-01_cat_689-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.690-01_cat_699-12.downscaled.nc \
+       ${FBASE}.downscaled.nc
+

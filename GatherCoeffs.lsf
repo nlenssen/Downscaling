@@ -1,0 +1,153 @@
+#!/bin/csh
+#
+# $Id: GatherCoeffs.lsf,v 1.7 2007/10/11 18:06:33 thoar Exp $
+# 
+#----------------------------------------------------------------------
+# LSF options for BSUB
+#
+### -J      job name 
+### -o      output listing filename 
+### -q      queue
+### -N -u   mail this user when job finishes
+### -n      number of processors  (really)
+### -W      wall-clock hours:minutes required
+#
+#----------------------------------------------------------------------
+#
+#BXXX -b 9:16:23:30
+#BSUB -J Gather[1]
+#BSUB -o Gather.%J.%I.log
+#BSUB -q standby
+#BSUB -N -u ${USER}@ucar.edu
+#BSUB -n 1
+#BSUB -W 3:00
+#
+#----------------------------------------------------------------------
+# End of script preamble.
+#----------------------------------------------------------------------
+
+#----------------------------------------------------------------------
+# Turns out the scripts are a lot more flexible if you don't rely on 
+# the queuing-system-specific variables -- so I am converting them to
+# 'generic' names and using the generics throughout the remainder.
+#----------------------------------------------------------------------
+
+if ($?LSB_HOSTS) then
+
+   setenv ORIGINALDIR $LS_SUBCWD 
+   setenv JOBNAME     $LSB_OUTPUTFILE:ar
+   setenv JOBID       $LSB_JOBID
+   setenv MYQUEUE     $LSB_QUEUE
+   setenv MYHOST      $LSB_SUB_HOST
+   setenv TASKID      $LSB_JOBINDEX
+   setenv NTASKS      $LSB_JOBINDEX_END
+   setenv TEMPDIR     /ptmp/thoar
+
+   # if you are interested in the environment variables set
+   # by LSF, uncomment this following line. 
+   # env | grep LS | grep -v LS_COLORS | sort
+
+else
+
+   #-------------------------------------------------------------------
+   # You can debug the script by running this interactively.
+   # All the environment variables normally specified by the queueing 
+   # system must be manually set ... here.
+   # PLEASE only run VERY SHORT jobs this way.
+   #-------------------------------------------------------------------
+
+   setenv ORIGINALDIR `pwd`
+   setenv JOBNAME     Gather
+   setenv JOBID       $$
+   setenv MYQUEUE     Interactive
+   setenv MYHOST      $host
+   setenv TASKID      1
+   setenv NTASKS      1
+   setenv TEMPDIR     /project/gsp/thoar
+   setenv TEMPDIR     /ptmp/thoar
+
+endif
+
+set experiment = ${JOBNAME}.${JOBID}.${TASKID}
+
+#----------------------------------------------------------------------
+# good style is to create a clean temporary directory, work in it, and
+# clean it up when you are done.
+#----------------------------------------------------------------------
+
+setenv TMPDIR ${TEMPDIR}/${JOBNAME}_job${TASKID}
+
+mkdir -p ${TMPDIR}
+cd ${TMPDIR}
+\rm -f *.nc
+
+#----------------------------------------------------------------------
+# Just an echo of job attributes
+# I am also leaving a trail of breadcrumbs in case the job fails.
+# I'll be able to track which node was being used when it failed.
+#----------------------------------------------------------------------
+
+echo
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"
+echo "${JOBNAME} ($JOBID) running       on $host"
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date`
+echo
+
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"            >! breadcrumb
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"                 >> breadcrumb
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"                >> breadcrumb
+echo "${JOBNAME} ($JOBID) running       on $host"                   >> breadcrumb
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date` >> breadcrumb
+
+#----------------------------------------------------------------------
+# Create a teeny-weeny R program to run
+#----------------------------------------------------------------------
+
+echo ' library(ncdf)'                                                    >! rscript.r
+echo ' library(fields)'                                                  >> rscript.r
+echo ' source("/fs/image/home/thoar/downscaling/CoeffRDataToNetCDF.r")'  >> rscript.r
+echo ' source("/fs/image/home/thoar/downscaling/CoeffRData2NetCDF.r")'   >> rscript.r
+echo ' source("/fs/image/home/thoar/downscaling/GatherCoeffs.r")'        >> rscript.r
+echo ' latind1arr = c(  1, 101, 201, 301, 401, 501, 601)'                >> rscript.r
+echo ' latindNarr = c(100, 200, 300, 400, 500, 600, 621)'                >> rscript.r
+echo ''                                                                  >> rscript.r
+echo ' ddir = "'${TEMPDIR}/downscaling'"'                                >> rscript.r
+
+#foreach VAR ( tmin tmax tave dtr ppt )
+foreach VAR ( ppt )
+
+   echo ' varstring = "'$VAR'"'                                          >> rscript.r 
+   echo ' bob = GatherCoeffs( ddir = ddir,'                              >> rscript.r
+   echo '                varstring = varstring,'                         >> rscript.r
+   echo '               latind1arr = latind1arr,'                        >> rscript.r
+   echo '               latindNarr = latindNarr)'                        >> rscript.r
+   echo ' ted = sprintf("%s/coeffs2_%s_%03d_%3d.RData",'                  >> rscript.r
+   echo '               ddir, varstring, latind1=1, latindN=621)'        >> rscript.r
+   echo ' save.image(file=ted)'                                          >> rscript.r 
+   echo ''                                                               >> rscript.r
+   echo ' # save the coefficients to a netCDF file.'                     >> rscript.r
+   echo ' ted = CoeffRDataToNetCDF(vrbl = bob,'                          >> rscript.r
+   echo '                          ddir = ddir,'                         >> rscript.r
+   echo '                         fbase = "coeffs2")'                     >> rscript.r
+   echo ''                                                               >> rscript.r
+   echo ' # save the RAW and TRANSFORMED diagnostics to a netCDF file.'  >> rscript.r
+   echo ' ted = CoeffRData2NetCDF(vrbl = bob,'                           >> rscript.r
+   echo '                          ddir = ddir,'                         >> rscript.r
+   echo '                         fbase = "coeffs2")'                     >> rscript.r
+
+   R CMD BATCH --no-save rscript.r batch.rout
+
+   mv rscript.r    ${ORIGINALDIR}/${experiment}.${VAR}.r
+   mv batch.rout   ${ORIGINALDIR}/${experiment}.${VAR}.rout
+
+end
+
+#----------------------------------------------------------------------
+cd ${ORIGINALDIR}
+\rm -rf ${TMPDIR}
+
+echo ""
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS finished at "`date`
+echo ""

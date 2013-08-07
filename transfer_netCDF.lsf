@@ -1,0 +1,74 @@
+#!/bin/csh
+#
+# $Id: transfer_netCDF.lsf,v 1.9 2008/04/24 03:57:36 thoar Exp $
+#----------------------------------------------------------------------
+# LSF options for BSUB
+#
+### -J      job name 
+### -o      output listing filename 
+### -q      queue
+### -N -u   mail this user when job finishes
+### -n      number of processors  (really)
+### -W      wall-clock hours:minutes required
+#
+#----------------------------------------------------------------------
+#
+#BXXX -b 23:30
+#BSUB -J consolidate
+#BSUB -o consolidate.%J.log
+#BSUB -q standby
+#BSUB -N -u ${USER}@ucar.edu
+#BSUB -n 1
+#BSUB -R "span[ptile=1]"
+#BSUB -W 3:00
+#BSUB -m  "cr0128en cr0129en cr0130en cr0131en cr0132en cr0133en cr0134en cr0135en cr0136en cr0137en cr0138en cr0139en cr0140en cr0141en cr0202en cr0201en"
+#
+#----------------------------------------------------------------------
+
+cd /ptmp/thoar/downscaling
+
+set GCMDIR = 'PR'
+set GCMVAR = 'pr'
+set PRISMVAR = 'ppt'
+
+set ORGDIR = /ptmp/thoar/downscaling/${GCMDIR}
+set    EXP =  A1.20C3M_8.CCSM.atmm
+set  FBASE = ${EXP}.1870-01_cat_1999-12
+
+#----------------------------------------------------------------------
+# Remove the bnds "units" attribute which is apparently causing difficulties
+# for the GIS crowd.
+#----------------------------------------------------------------------
+
+foreach FILE ( ${PRISMVAR}_${EXP}.*.downscaled.nc )
+   ncatted -a units,bnds,d,c,"" ${FILE}
+   ncatted -O -h -a history,global,o,c," " ${FILE}
+end
+
+ncrcat ${PRISMVAR}_${EXP}.*.downscaled.nc ${PRISMVAR}_${EXP}.nc
+mv     ${PRISMVAR}_${EXP}.nc ${PRISMVAR}_${FBASE}.downscaled.nc
+
+#----------------------------------------------------------------------
+# Extract and then append the time_bnds array and all the original metadata
+#----------------------------------------------------------------------
+
+ncks -v time_bnds ${ORGDIR}/${GCMVAR}_${FBASE}.nc ${GCMVAR}_${EXP}.time_bnds.nc
+
+ncrename -a table_id,CCSM_table_id \
+         -a title,CCSM_title \
+         -a institution,CCSM_institution \
+         -a source,CCSM_source \
+         -a contact,CCSM_contact \
+         -a project_id,CCSM_project_id \
+         -a Conventions,CCSM_Conventions \
+         -a references,CCSM_references \
+         -a acknowledgment,CCSM_acknowledgment \
+         -a realization,CCSM_realization \
+         -a experiment_id,CCSM_experiment_id \
+         -a history,CCSM_history \
+         -a comment,CCSM_comment \
+         ${GCMVAR}_${EXP}.time_bnds.nc
+
+ncatted -O -h -a history,global,o,c,"preserving history from original CCSM data\n" ${GCMVAR}_${EXP}.time_bnds.nc
+
+ncks -A ${GCMVAR}_${EXP}.time_bnds.nc ${PRISMVAR}_${FBASE}.downscaled.nc

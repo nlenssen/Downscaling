@@ -1,0 +1,143 @@
+#!/bin/csh
+#
+# This is an example batch script to fire off ONE R job to ONE compute-
+# node on coral. As is the case with most batch jobs, the directives
+# start with the comment character immediately followed by 
+# some character string recognized by the queueing system ... 
+# in this case ... BSUB 
+#
+# This is a little wasteful in that the other processor on the node
+# sits there with nothing to do. See an example of MatlabBatch.lsf to
+# see how to fire off two jobs with one script ... one job to each
+# processor on the node.
+#
+# TJH -- 07 Nov 2006 
+# NJL -- 28 Jun 2013 Updated to run on yellowstone
+#
+#----------------------------------------------------------------------
+# LSF options for BSUB
+#
+### -J      job name 
+### -o      output listing filename 
+### -q      queue
+### -N -u   mail this user when job finishes
+### -n      number of processors  (really)
+### -W      wall-clock hours:minutes required
+#
+#----------------------------------------------------------------------
+#
+#BSUB -J prismnco[1-12]
+#BSUB -o prismnco.%J.%I.log
+#BSUB -q geyser
+#BSUB -N -u ${USER}@ucar.edu
+#BSUB -n 1
+#BSUB -W 2:00
+#BSUB -P P86850053
+#----------------------------------------------------------------------
+# End of script preamble.
+#----------------------------------------------------------------------
+
+#----------------------------------------------------------------------
+# Turns out the scripts are a lot more flexible if you don't rely on 
+# the queuing-system-specific variables -- so I am converting them to
+# 'generic' names and using the generics throughout the remainder.
+#----------------------------------------------------------------------
+
+if ($?LSB_HOSTS) then
+
+   setenv ORIGINALDIR $LS_SUBCWD 
+   setenv JOBNAME     $LSB_OUTPUTFILE:ar
+   setenv JOBID       $LSB_JOBID
+   setenv MYQUEUE     $LSB_QUEUE
+   setenv MYHOST      $LSB_SUB_HOST
+   setenv TASKID      $LSB_JOBINDEX
+   setenv NTASKS      $LSB_JOBINDEX_END
+   setenv TEMPDIR     /glade/u/home/lenssen/downscaling
+
+   # if you are interested in the environment variables set
+   # by LSF, uncomment this following line. 
+   # env | grep LS | grep -v LS_COLORS | sort
+
+else
+
+   #-------------------------------------------------------------------
+   # You can debug the script by running this interactively.
+   # All the environment variables normally specified by the queueing 
+   # system must be manually set ... here.
+   # PLEASE only run VERY SHORT jobs this way.
+   #-------------------------------------------------------------------
+
+   setenv ORIGINALDIR `pwd`
+   setenv JOBNAME     RInteractive
+   setenv JOBID       $$
+   setenv MYQUEUE     Interactive
+   setenv MYHOST      $HOST
+   setenv TASKID      2
+   setenv NTASKS      3
+   setenv TEMPDIR     /glade/u/home/lenssen/downscaling
+
+endif
+
+#----------------------------------------------------------------------
+# Set up the arrays that will be exploited by the Job Array ID 
+#----------------------------------------------------------------------
+
+set startyears = (1895 1900 1910 1920 1930 1940 1950 1960 1970 1980 1990 2000)
+set endyears   = (1899 1909 1919 1929 1939 1949 1959 1969 1979 1989 1999 2005)
+set year1 = $startyears[$TASKID]
+set yearN = $endyears[$TASKID]
+
+#----------------------------------------------------------------------
+# good style is to create a clean temporary directory, work in it, and
+# clean it up when you are done.
+#----------------------------------------------------------------------
+
+#setenv TMPDIR ${TEMPDIR}/${JOBNAME}_job${TASKID}
+#mkdir -p ${TMPDIR}
+#cd ${TMPDIR}
+#\rm -f *.nc
+
+#----------------------------------------------------------------------
+# Just an echo of job attributes
+# I am also leaving a trail of breadcrumbs in case the job fails.
+# I'll be able to track which node was being used when it failed.
+#----------------------------------------------------------------------
+
+echo
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"
+echo "${JOBNAME} ($JOBID) running       on $HOST"
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date`
+echo
+
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"            >! breadcrumb
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"                 >> breadcrumb
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"                >> breadcrumb
+echo "${JOBNAME} ($JOBID) running       on $HOST"                   >> breadcrumb
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date` >> breadcrumb
+
+# cd /project/gsp/thoar/prism100/temp
+cd /glade/p/work/lenssen/output/
+
+echo "working on task id $TASKID - years $year1 -> $yearN"
+echo "renaming tmin,tmax at "`date`
+ncrename -v tmin,T tmin_${year1}_${yearN}.nc prism_tmin_${year1}_${yearN}.nc
+ncrename -v tmax,T tmax_${year1}_${yearN}.nc prism_tmax_${year1}_${yearN}.nc
+
+echo "differencing at "`date`
+ncdiff -v T prism_tmax_${year1}_${yearN}.nc prism_tmin_${year1}_${yearN}.nc \
+                prism_dtr_${year1}_${yearN}.nc
+
+echo "renaming dtr at "`date`
+ncrename -v T,dtr prism_dtr_${year1}_${yearN}.nc dtr_${year1}_${yearN}.nc
+
+echo "averaging at "`date`
+ncea -v T prism_tmax_${year1}_${yearN}.nc prism_tmin_${year1}_${yearN}.nc \
+                prism_tave_${year1}_${yearN}.nc
+
+echo "renaming tave at "`date`
+ncrename -v T,tave prism_tave_${year1}_${yearN}.nc tave_${year1}_${yearN}.nc
+echo ""
+
+echo "finished at "`date`

@@ -1,0 +1,178 @@
+#!/bin/csh
+#
+# This is an example batch script to fire off ONE R job to ONE compute-
+# node on coral. As is the case with most batch jobs, the directives
+# start with the comment character immediately followed by 
+# some character string recognized by the queueing system ... 
+# in this case ... BSUB 
+#
+# This is a little wasteful in that the other processor on the node
+# sits there with nothing to do. See an example of MatlabBatch.lsf to
+# see how to fire off two jobs with one script ... one job to each
+# processor on the node.
+#
+# TJH -- 07 Nov 2006
+# NJL -- 28 Jun 2013 Updated to run on yellowstone 
+#----------------------------------------------------------------------
+# LSF options for BSUB
+#
+### -J      job name 
+### -o      output listing filename 
+### -q      queue
+### -N -u   mail this user when job finishes
+### -n      number of processors  (really)
+### -W      wall-clock hours:minutes required
+#
+#----------------------------------------------------------------------
+#
+#BSUB -J prism[1]
+#BSUB -o prism.%J.%I.log
+#BSUB -q geyser
+#BSUB -N -u ${USER}@ucar.edu
+#BSUB -n 1
+#BSUB -W 1:00
+#BSUB -P P86850053
+#----------------------------------------------------------------------
+# End of script preamble.
+#----------------------------------------------------------------------
+
+#----------------------------------------------------------------------
+# Turns out the scripts are a lot more flexible if you don't rely on 
+# the queuing-system-specific variables -- so I am converting them to
+# 'generic' names and using the generics throughout the remainder.
+#----------------------------------------------------------------------
+
+if ($?LSB_HOSTS) then
+
+   setenv ORIGINALDIR $LS_SUBCWD 
+   setenv JOBNAME     $LSB_OUTPUTFILE:ar
+   setenv JOBID       $LSB_JOBID
+   setenv MYQUEUE     $LSB_QUEUE
+   setenv MYHOST      $LSB_SUB_HOST
+   setenv TASKID      $LSB_JOBINDEX
+   setenv NTASKS      $LSB_JOBINDEX_END
+   setenv TEMPDIR     /glade/u/home/lenssen/downscaling/
+   setenv DATADIR     /glade/p/work/lenssen/output/
+
+   # if you are interested in the environment variables set
+   # by LSF, uncomment this following line. 
+   # env | grep LS | grep -v LS_COLORS | sort
+
+else
+
+   #-------------------------------------------------------------------
+   # You can debug the script by running this interactively.
+   # All the environment variables normally specified by the queueing 
+   # system must be manually set ... here.
+   # PLEASE only run VERY SHORT jobs this way.
+   #-------------------------------------------------------------------
+
+   setenv ORIGINALDIR `pwd`
+   setenv JOBNAME     RInteractive
+   setenv JOBID       $$
+   setenv MYQUEUE     Interactive
+   setenv MYHOST      $HOST
+   setenv TASKID      2
+   setenv NTASKS      3
+   setenv TEMPDIR     /glade/u/home/lenssen/downscaling
+   setenv DATADIR     /glade/p/work/lenssen/output
+endif
+
+#----------------------------------------------------------------------
+# good style is to create a clean temporary directory, work in it, and
+# clean it up when you are done.
+#----------------------------------------------------------------------
+
+setenv TMPDIR ${TEMPDIR}/${JOBNAME}_job${TASKID}
+
+mkdir -p ${TMPDIR}
+cd ${TMPDIR}
+
+#----------------------------------------------------------------------
+# Just an echo of job attributes
+# I am also leaving a trail of breadcrumbs in case the job fails.
+# I'll be able to track which node was being used when it failed.
+#----------------------------------------------------------------------
+
+echo
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"
+echo "${JOBNAME} ($JOBID) running       on $HOST"
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date`
+echo
+
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"            >! breadcrumb
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"                 >> breadcrumb
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"                >> breadcrumb
+echo "${JOBNAME} ($JOBID) running       on $HOST"                   >> breadcrumb
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date` >> breadcrumb
+
+#----------------------------------------------------------------------
+# Create a teeny-weeny R program to run
+# In geek-speak, files created this particular way are "here" documents. 
+#----------------------------------------------------------------------
+
+ln -s ${DATADIR}/tave_1895_2005.nc .
+ln -s ${DATADIR}/dtr_1895_2005.nc  .
+ln -s ${DATADIR}/tmin_1895_2005.nc .
+ln -s ${DATADIR}/tmax_1895_2005.nc .
+ln -s ${DATADIR}/ppt_1895_2005.nc  .
+
+foreach TASKID ( 1 2 3 4 5 )
+
+   set  fnames = ("tave_1895_2005.nc" \
+                   "dtr_1895_2005.nc" \
+                  "tmin_1895_2005.nc" \
+                  "tmax_1895_2005.nc" \
+                   "ppt_1895_2005.nc" )
+   set  vars = ( "tave" "dtr" "tmin" "tmax" "ppt" )
+   
+   echo '   fname    = "'$fnames[$TASKID]'"' >! ${JOBNAME}.${JOBID}.${TASKID}.r
+   echo '   prismvar = "'$vars[$TASKID]'"'   >> ${JOBNAME}.${JOBID}.${TASKID}.r
+   
+cat << ENDofTask01 >> ${JOBNAME}.${JOBID}.${TASKID}.r
+   
+   library(fields)
+   library(chron)
+   library(ncdf)
+   
+   source("/glade/u/home/lenssen/downscaling/ConvertUnits.r")
+   source("/glade/u/home/lenssen/downscaling/GenerateCoeffs.r")
+   ddir = "/glade/u/home/lenssen/downscaling/gcm"
+   
+   ofname = paste("NL_prism_",prismvar,".RData",sep="")
+   
+   coefficients = GenerateCoeffs(fname,prismvar,ddir,locator=FALSE)
+   save(coefficients,file=ofname)
+   
+ENDofTask01
+   
+   #-------------------------------------------------------------------
+   # Run the program:
+   #-------------------------------------------------------------------
+   R CMD BATCH --no-save ${JOBNAME}.${JOBID}.${TASKID}.r \
+                         ${JOBNAME}.${JOBID}.${TASKID}.rout
+
+   #-------------------------------------------------------------------
+   # Copy output to final destination.
+   #-------------------------------------------------------------------
+
+   mv ${JOBNAME}.${JOBID}.${TASKID}.r    ${ORIGINALDIR}
+   mv ${JOBNAME}.${JOBID}.${TASKID}.rout ${ORIGINALDIR}
+   mv *.RData ${DATADIR}
+   
+end
+
+ls -al 
+
+#----------------------------------------------------------------------
+# Remove temporary directory.
+#----------------------------------------------------------------------
+
+cd ${ORIGINALDIR}
+\rm -rf ${TMPDIR}
+
+echo ""
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS finished at "`date`
+echo ""

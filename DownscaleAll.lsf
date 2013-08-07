@@ -1,0 +1,193 @@
+#!/bin/csh
+#
+# This is an example batch script to fire off N jobs to the 
+# node on yellowstone. As is the case with most batch jobs, the directives
+# directives start with the comment character immediately followed by 
+# some character string recognized by the queueing system ... 
+# in this case ... BSUB 
+#
+# TJH -- 3 Nov 2006 
+#----------------------------------------------------------------------
+# LSF options for BSUB
+#
+### -J      job name 
+### -o      output listing filename 
+### -q      queue (in this case ... geyser is the only choice)
+### -N -u   mail this user when job finishes
+### -n      number of processors  (really)
+### -W      wall-clock hours:minutes required
+### -R "span[ptile=1]" only use 1 CPU - which will allow another job
+#                      to run concurrently on the other CPU on the node.
+#
+#----------------------------------------------------------------------
+# The whole Job 'array' philosophy is that you are fundamentally 
+# executing this identical script several times. The only difference is
+# that each job has a UNIQUE environment variable (a job index).
+# This job index is usually used as an index into an array to extract
+# values that will separate one job from the next.
+#
+# The -J directive is FUNDAMENTAL to making a job array.
+# The contents between the square brackets is hugely important.
+# Only the simple example is outlined here, for more, read 'man bsub'.
+# If you specify [1-3] THREE instances of this script are submitted.
+# They will all show up in the queue with the same LSB_JOBID, 
+# but each will run with a different LSB_JOBINDEX.
+#
+# If you specify [1-49:10] FIVE jobs will get spawned, with 
+# job indices of 1, 11, 21, 31, 41 (i.e. 10 is the stride)
+#
+# Since it is possible to flood the queueing system with a bunch of
+# jobs with this syntax - please be a good neighbor and restrict the
+# number of jobs running concurrently with the following syntax:
+#
+#BXXX -J RJobArray[1-500:10]%5
+#
+# This will ensure that only 5 of your jobs are running at once, leaving
+# the rest of the machine open to others. Thanks.
+#----------------------------------------------------------------------
+#
+#BSUB -J RJobArray[1-24]%5
+#BSUB -o RJobArray.%J.%I.log
+#BSUB -P P86850054
+#BSUB -q geyser
+#BSUB -N -u ${USER}@ucar.edu
+#BSUB -n 1
+#BSUB -R "span[ptile=1]"
+#BSUB -W 0:04
+#
+#----------------------------------------------------------------------
+# End of script preamble.
+#----------------------------------------------------------------------
+
+#----------------------------------------------------------------------
+# Turns out the scripts are a lot more flexible if you don't rely on 
+# the queuing-system-specific variables -- so I am converting them to
+# 'generic' names and using the generics throughout the remainder.
+#----------------------------------------------------------------------
+
+if ($?LSB_HOSTS) then
+
+   setenv ORIGINALDIR $LS_SUBCWD 
+   setenv JOBNAME     $LSB_OUTPUTFILE:ar
+   setenv JOBID       $LSB_JOBID
+   setenv MYQUEUE     $LSB_QUEUE
+   setenv MYHOST      $LSB_SUB_HOST
+   setenv TASKID      $LSB_JOBINDEX
+   setenv NTASKS      $LSB_JOBINDEX_END
+   setenv PROCNAMES   ${LSB_HOSTS}
+
+   # if you are interested in the environment variables set
+   # by LSF, uncomment this following line. 
+   # env | grep LS | grep -v LS_COLORS | sort
+
+else
+
+   #-------------------------------------------------------------------
+   # You can run this interactively to check syntax, file motion, etc.
+   #-------------------------------------------------------------------
+
+   setenv ORIGINALDIR `pwd` 
+   setenv JOBNAME     RJobArray
+   setenv JOBID       $$
+   setenv MYQUEUE     Interactive
+   setenv MYHOST      $HOST
+   setenv TASKID      4
+   setenv NTASKS      1
+
+endif
+
+#----------------------------------------------------------------------
+# Just an echo of job attributes
+#----------------------------------------------------------------------
+
+echo
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"
+echo "${JOBNAME} ($JOBID) running       on $HOST"
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date`
+echo
+
+#----------------------------------------------------------------------
+# Make a unique, (empty, clean) temporary directory.
+#----------------------------------------------------------------------
+
+setenv TMPDIR /glade/scratch/${user}/${JOBNAME}_job${TASKID}
+
+mkdir -p ${TMPDIR}
+cd ${TMPDIR}
+
+echo "We are using "`which R`
+echo "In directory "`pwd`
+echo "This directory has initial contents"
+ls -alh 
+
+#----------------------------------------------------------------------
+# Copy files from wherever you have them to HERE.
+#----------------------------------------------------------------------
+
+echo
+echo "Copying files to run-time directory ... "
+
+# copy files from wherever to here ...
+
+#----------------------------------------------------------------------
+# Here's the part that makes each job different. As an example, lets
+# say you want to do the same thing 5 times, but you need a different
+# random seed for each job (or you get the same results).
+# Furthermore, you want each job to create a unique output file.
+# Seems useful, doesn't it? Or maybe you want to fit a model with
+# a couple different values, but it's the same 'job', or maybe
+# run the same thing for each year ...
+# Here goes the shotgun approach:
+#----------------------------------------------------------------------
+
+ls -1 /glade/p/work/lenssen/AR5/tas_*_rcp*.nc >! file_list.txt
+set fname = `head -n $TASKID file_list.txt | tail -n 1`
+
+echo "fname  = $fname"                 >> script${TASKID}.r
+
+cat script${TASKID}.r
+
+
+
+
+exit
+
+
+
+
+echo "year   = $years[$TASKID]"                 >> script${TASKID}.r
+echo 'fname  = paste("bob",alpha,beta,sep="_")' >> script${TASKID}.r
+echo 'source("Rcode.r")'                        >> script${TASKID}.r
+   
+#----------------------------------------------------------------------
+# Run the program (and DO NOT save a .RData ...)
+# comment the "R CMD BATCH" line if you are interactively syntax-checking
+#----------------------------------------------------------------------
+
+echo
+echo "Running R ... "
+
+R CMD BATCH --no-save script${TASKID}.r rbatch.${TASKID}.out
+
+#----------------------------------------------------------------------
+# remove temporary directories.
+#----------------------------------------------------------------------
+
+echo
+echo "Saving the output ... "
+
+mkdir -p                   ${ORIGINALDIR}/${JOBNAME}_${TASKID}
+mv -v script${TASKID}.r    ${ORIGINALDIR}/${JOBNAME}_${TASKID}
+mv -v rbatch.${TASKID}.out ${ORIGINALDIR}/${JOBNAME}_${TASKID}
+mv -v bob*                 ${ORIGINALDIR}/${JOBNAME}_${TASKID}
+
+echo "runtime directory contents before removal:"
+ls -alh 
+
+cd ${ORIGINALDIR}
+# \rm -rf ${TMPDIR}
+
+echo
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS finished at "`date`

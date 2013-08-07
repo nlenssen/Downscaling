@@ -1,0 +1,74 @@
+
+R version 2.15.2 (2012-10-26) -- "Trick or Treat"
+Copyright (C) 2012 The R Foundation for Statistical Computing
+ISBN 3-900051-07-0
+Platform: x86_64-unknown-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+>    metadatafile = "metadata.txt"
+>    year1 = 1900
+>    yearN = 1909
+>    ddir  = "/glade/u/home/lenssen/downscaling/prism100"
+> 
+>    library(fields)
+Loading required package: spam
+Spam version 0.29-2 (2012-08-17) is loaded.
+Type 'help( Spam)' or 'demo( spam)' for a short introduction 
+and overview of this package.
+Help for individual functions is also obtained by adding the
+suffix '.spam' to the function name, e.g. 'help( chol.spam)'.
+
+Attaching package: 'spam'
+
+The following object(s) are masked from 'package:base':
+
+    backsolve, forwardsolve
+
+>    library(chron)
+>    library(ncdf)
+> 
+>    source("/glade/u/home/lenssen/downscaling/ReadArcInfoAsciiGrid.r")
+>    source("/glade/u/home/lenssen/downscaling/GetArcInfoMetadata.r")
+>    source("/glade/u/home/lenssen/downscaling/ArcInfoToNetCDF.r")
+> 
+>    # The prism data are either mm*100 or degrees Celsius*100
+>    # Either way, you have to scale it by 100.
+> 
+>    NCvar      = 'tmax'
+>    NCunits    = 'celsius'
+>    NCstdname  = 'maximum daily temperature'
+>    NClongname = 'monthly mean maximum daily temperature'
+>    NCmethods  = 'time: mean (interval: 1 month)'
+>    NCmethod   = 'time: mean'
+> 
+>    ArcInfoToNetCDF(ddir      = ddir, 
++                 metadatafile = metadatafile,
++                 NCvar        = NCvar, 
++                 NCunits      = NCunits,
++                 NCstdname    = NCstdname, 
++                 NClongname   = NClongname, 
++                 NCmethods    = NCmethods, 
++                 NCmethod     = NCmethod, 
++                 scaleby      = 100.0,
++                 year1=year1, yearN=yearN)
+Reading  /glade/u/home/lenssen/downscaling/prism100/TMAX/us_tmax_1900.01.gz 
+Error in scan(connec, what = "character", n = 12) : 
+  cannot open the connection
+Calls: ArcInfoToNetCDF -> ReadArcInfoAsciiGrid -> scan
+In addition: Warning message:
+In scan(connec, what = "character", n = 12) :
+  cannot open compressed file '/glade/u/home/lenssen/downscaling/prism100/TMAX/us_tmax_1900.01.gz', probable reason 'No such file or directory'
+Execution halted

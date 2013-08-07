@@ -1,0 +1,178 @@
+#!/bin/csh
+#
+# Converts the monthly prism data into a netCDF file.
+#
+# TJH -- 26 Dec 2006 
+# NJL -- 25 Jun 2013 Updated to run on yellowstone
+#
+#----------------------------------------------------------------------
+# LSF options for BSUB
+#
+### -J      job name 
+### -o      output listing filename 
+### -q      queue
+### -N -u   mail this user when job finishes
+### -n      number of processors  (really)
+### -W      wall-clock hours:minutes required
+### -R "span[ptile=1]" only use 1 CPU - which will allow another job
+# 		       to run concurrently on the other CPU on the node.
+#
+#----------------------------------------------------------------------
+#
+#BSUB -J prismtmax[1-12]
+#BSUB -o prismtmax.%J.%I.log
+#BSUB -q geyser
+#BSUB -N -u ${USER}@ucar.edu
+#BSUB -n 1
+#BSUB -W 0:30
+#BSUB -P P86850053
+#----------------------------------------------------------------------
+# End of script preamble.
+#----------------------------------------------------------------------
+
+#----------------------------------------------------------------------
+# Turns out the scripts are a lot more flexible if you don't rely on 
+# the queuing-system-specific variables -- so I am converting them to
+# 'generic' names and using the generics throughout the remainder.
+#----------------------------------------------------------------------
+
+if ($?LSB_HOSTS) then
+
+   setenv ORIGINALDIR $LS_SUBCWD 
+   setenv JOBNAME     $LSB_OUTPUTFILE:ar
+   setenv JOBID       $LSB_JOBID
+   setenv MYQUEUE     $LSB_QUEUE
+   setenv MYHOST      $LSB_SUB_HOST
+   setenv TASKID      $LSB_JOBINDEX
+   setenv NTASKS      $LSB_JOBINDEX_END
+   setenv TEMPDIR     /glade/u/home/lenssen/downscaling/
+   setenv DATADIR     /glade/u/home/lenssen/downscaling/prism100
+
+   # if you are interested in the environment variables set
+   # by LSF, uncomment this following line. 
+   # env | grep LS | grep -v LS_COLORS | sort
+
+else
+
+   #-------------------------------------------------------------------
+   # You can debug the script by running this interactively.
+   # All the environment variables normally specified by the queueing 
+   # system must be manually set ... here.
+   # PLEASE only run VERY SHORT jobs this way.
+   #-------------------------------------------------------------------
+
+   setenv ORIGINALDIR `pwd`
+   setenv JOBNAME     RInteractive
+   setenv JOBID       $$
+   setenv MYQUEUE     Interactive
+   setenv MYHOST      $HOST
+   setenv TASKID      2
+   setenv NTASKS      3
+   setenv TEMPDIR     /glade/u/home/lenssen/downscaling/
+   setenv DATADIR     /glade/u/home/lenssen/downscaling/prism100
+endif
+
+
+#----------------------------------------------------------------------
+# Set up the arrays that will be exploited by the Job Array ID 
+#----------------------------------------------------------------------
+
+set  startyears = ( 1895 1900 1910 1920 1930 1940 1950 1960 1970 1980 1990 2000 )
+set  endyears   = ( 1899 1909 1919 1929 1939 1949 1959 1969 1979 1989 1999 2005 )
+
+#----------------------------------------------------------------------
+# good style is to create a clean temporary directory, work in it, and
+# clean it up when you are done.
+#----------------------------------------------------------------------
+
+setenv TMPDIR ${TEMPDIR}/${JOBNAME}_job${TASKID}
+
+mkdir -p ${TMPDIR}
+cd ${TMPDIR}
+\rm -f *.nc
+
+#----------------------------------------------------------------------
+# Just an echo of job attributes
+# I am also leaving a trail of breadcrumbs in case the job fails.
+# I'll be able to track which node was being used when it failed.
+#----------------------------------------------------------------------
+
+echo
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"
+echo "${JOBNAME} ($JOBID) running       on $HOST"
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date`
+echo
+
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"            >! breadcrumb
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"                 >> breadcrumb
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"                >> breadcrumb
+echo "${JOBNAME} ($JOBID) running       on $HOST"                   >> breadcrumb
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date` >> breadcrumb
+
+#----------------------------------------------------------------------
+# Create a teeny-weeny R program to run
+# In geek-speak, files created this particular way are "here" documents. 
+#----------------------------------------------------------------------
+
+ln -s ${DATADIR}/us_25m.dem        .
+ln -s ${DATADIR}/temp_metadata.txt metadata.txt
+
+echo '   metadatafile = "metadata.txt"'    >! ${JOBNAME}.${JOBID}.${TASKID}.r
+echo "   year1 = $startyears[$TASKID]"     >> ${JOBNAME}.${JOBID}.${TASKID}.r
+echo "   yearN = $endyears[$TASKID]"       >> ${JOBNAME}.${JOBID}.${TASKID}.r
+echo '   ddir  = "'${DATADIR}'"'           >> ${JOBNAME}.${JOBID}.${TASKID}.r
+
+cat << ENDofTask01 >> ${JOBNAME}.${JOBID}.${TASKID}.r
+
+   library(fields)
+   library(chron)
+   library(ncdf)
+
+   source("/glade/u/home/lenssen/downscaling/ReadArcInfoAsciiGrid.r")
+   source("/glade/u/home/lenssen/downscaling/GetArcInfoMetadata.r")
+   source("/glade/u/home/lenssen/downscaling/ArcInfoToNetCDF.r")
+
+   # The prism data are either mm*100 or degrees Celsius*100
+   # Either way, you have to scale it by 100.
+
+   NCvar      = 'tmax'
+   NCunits    = 'celsius'
+   NCstdname  = 'maximum daily temperature'
+   NClongname = 'monthly mean maximum daily temperature'
+   NCmethods  = 'time: mean (interval: 1 month)'
+   NCmethod   = 'time: mean'
+
+   ArcInfoToNetCDF(ddir      = ddir, 
+                metadatafile = metadatafile,
+                NCvar        = NCvar, 
+                NCunits      = NCunits,
+                NCstdname    = NCstdname, 
+                NClongname   = NClongname, 
+                NCmethods    = NCmethods, 
+                NCmethod     = NCmethod, 
+                scaleby      = 100.0,
+                year1=year1, yearN=yearN)
+ENDofTask01
+
+#----------------------------------------------------------------------
+# Run the program:
+#----------------------------------------------------------------------
+R CMD BATCH --no-save ${JOBNAME}.${JOBID}.${TASKID}.r ${JOBNAME}.${JOBID}.${TASKID}.rout
+
+ls -l 
+
+#----------------------------------------------------------------------
+# Copy the output back to where we started, remove temporary directory.
+#----------------------------------------------------------------------
+
+mv ${JOBNAME}.${JOBID}.${TASKID}.r    ${ORIGINALDIR}
+mv ${JOBNAME}.${JOBID}.${TASKID}.rout ${ORIGINALDIR}
+mv *.nc /glade/p/work/lenssen/output/
+cd ${ORIGINALDIR}
+\rm -rf ${TMPDIR}
+
+echo ""
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS finished at "`date`
+echo ""

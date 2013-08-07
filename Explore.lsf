@@ -1,0 +1,136 @@
+#!/bin/csh
+#
+# $Id: Explore.lsf,v 1.3 2007/10/11 18:06:33 thoar Exp $
+#
+#BXXX -b 22:30
+#BSUB -J explore[1]
+#BSUB -o explore.%J.%I.log
+#BSUB -q standby
+#BSUB -N -u ${USER}@ucar.edu
+#BSUB -n 1
+#BSUB -W 12:00
+#BXXX -m  "cr0128en cr0129en cr0130en cr0131en cr0132en cr0133en cr0134en cr0135en cr0136en cr0137en cr0138en cr0139en cr0140en cr0141en cr0202en cr0201en"
+#
+#----------------------------------------------------------------------
+# End of script preamble.
+#----------------------------------------------------------------------
+
+if ($?LSB_HOSTS) then
+
+   setenv ORIGINALDIR $LS_SUBCWD 
+   setenv JOBNAME     $LSB_OUTPUTFILE:ar
+   setenv JOBID       $LSB_JOBID
+   setenv MYQUEUE     $LSB_QUEUE
+   setenv MYHOST      $LSB_SUB_HOST
+   setenv TASKID      $LSB_JOBINDEX
+   setenv NTASKS      $LSB_JOBINDEX_END
+   setenv TEMPDIR     /ptmp/${user}
+   setenv DATADIR     /ptmp/${user}/downscaling
+
+else
+
+   # You can debug the script by running this interactively.
+
+   setenv ORIGINALDIR `pwd`
+   setenv JOBNAME     downscale
+   setenv JOBID       $$
+   setenv MYQUEUE     Interactive
+   setenv MYHOST      $host
+   setenv TASKID      2
+   setenv NTASKS      3
+   setenv TEMPDIR     /project/gsp/${user}
+   setenv DATADIR     /project/gsp/${user}/downscaling
+
+endif
+
+#----------------------------------------------------------------------
+
+setenv TMPDIR ${TEMPDIR}/${JOBNAME}
+
+mkdir -p ${TMPDIR}
+cd ${TMPDIR}
+
+#----------------------------------------------------------------------
+# Just an echo of job attributes
+# I am also leaving a trail of breadcrumbs in case the job fails.
+# I'll be able to track which node was being used when it failed.
+#----------------------------------------------------------------------
+
+echo
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"
+echo "${JOBNAME} ($JOBID) running       on $host"
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date`
+echo
+
+echo "${JOBNAME} ($JOBID) submitted   from $ORIGINALDIR"            >! breadcrumb
+echo "${JOBNAME} ($JOBID) submitted   from $MYHOST"                 >> breadcrumb
+echo "${JOBNAME} ($JOBID) running in queue $MYQUEUE"                >> breadcrumb
+echo "${JOBNAME} ($JOBID) running       on $host"                   >> breadcrumb
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS started at "`date` >> breadcrumb
+
+#----------------------------------------------------------------------
+# Create the R program to run
+#
+# rather remarkably ... it was taking more than 30 minutes to create a netcdf
+# file of 10 years ... and it takes less than a minute to do it for 1 year.
+# So ... I might just process every year independently and ncrcat them together.
+# the problem is that the high-water memory mark for a 400MB netCDF file
+# is over 4GB ... crud.
+#
+# The output is EXPLICITLY created in the final resting place, so it does
+# not need to be moved.
+#----------------------------------------------------------------------
+
+cat << ENDofTask01 >! ${JOBNAME}.${JOBID}.${TASKID}.r
+
+   library(ncdf)
+   library(fields)
+
+   source("/fs/image/home/thoar/downscaling/TimLibrary.r")
+   source("/fs/image/home/thoar/downscaling/ExploreArtifacts.r")
+
+#  ddir       = "/ptmp/thoar/downscaling/prism100"
+#  prismfile  = "ppt_1895_2005.nc"
+   year1      = 1895
+   yearN      = 2005
+   pvar       = "ppt"
+
+   ddir       = "/ptmp/thoar/downscaling/done"
+   prismfile  = "pr_A1.20C3M_1.CCSM.atmm.1870-01_cat_1999-12.downscaled.nc"
+   pvar       = "pr"
+   year1      = 1870
+   yearN      = 1999
+   
+   bob = ExploreArtifacts(ddir = ddir, 
+                     prismfile = prismfile, 
+                          pvar = pvar, 
+                         year1 = year1, 
+                         yearN = yearN )
+
+   save(bob,file="/ptmp/thoar/downscaling/explore.RData")
+
+ENDofTask01
+   
+#----------------------------------------------------------------------
+# Run the program:
+#----------------------------------------------------------------------
+R CMD BATCH --no-save ${JOBNAME}.${JOBID}.${TASKID}.r \
+                      ${JOBNAME}.${JOBID}.${TASKID}.rout
+   
+#----------------------------------------------------------------------
+# Copy the output back to where we started, remove temporary directory.
+#----------------------------------------------------------------------
+
+mv ${JOBNAME}.${JOBID}.${TASKID}.r    ${ORIGINALDIR}
+mv ${JOBNAME}.${JOBID}.${TASKID}.rout ${ORIGINALDIR}
+
+ls -alh 
+
+cd ${ORIGINALDIR}
+\rm -rf ${TMPDIR}
+
+echo ""
+echo "${JOBNAME} ($JOBID) job $TASKID of $NTASKS finished at "`date`
+echo ""

@@ -1,0 +1,261 @@
+# Wed Nov 22 16:53:59 MST 2006
+# Updated Summer 2013 NJL for yellowstone
+
+1) Turn prism arcinfo data into netCDF files.
+   PrismnetCDF*.lsf  does this and creates 'decadal' netcdf files.
+   If the whole job array runs ... it takes under an hour.
+
+
+2) Creating the 'derived' products (Tave, DTR) requires some NCO work.
+   ncdiff and ncea take the pointwise difference between two variables
+   and average, respectively, but the variable name must be the same.
+   NCOscript.lsf does this in about 15 minutes (per decadal file).
+  
+   a) must rename the variables tmin, tmax to generic 't'
+   b) run ncdiff, ncea
+   c) rename the variable to specific tave, dtr
+
+
+3) use ncrcat to create ONE WHOPPING 4.5GB netcdf file.
+   At present time (Nov 22 2006) coral has a wacky problem with 
+   files over 2GB, so this must be done on some other machine 
+   that has R and ncdf. At present, this is fisher, so 
+   I did this from the command line:
+   e.g.  ncrcat 1.nc 2.nc .... 12.nc  ppt_1895_2005.nc
+
+
+4) Create the regression coefficients. PrismCoeff.lsf 
+   (calls GenerateCoeffs.r) This can be run with 
+   "at -f PrismCoeff.lsf now" and takes a couple hours to do
+   all 5 sets of regression coefficients [tave, dtr, tmin, tmax, ppt]
+   The regression coefficients are left in an .RData 'list' with 
+   names like 'prism_tave.RData'. [Has be slightly rewritten to submit
+   5 seperate processes as "PrismCoeffN.lsf"] (NJL)
+
+Known BUGS:
+
+(x) prism_txxx.RData$gcmN  has no data ...
+
+
+5) Actually downscale some GCM data ... Downscale.lsf
+   CoeffsToNetCDF.r  is the function to downscale.
+   Step 4 logged the GCM location to use for the prediction.
+   This one subsets the GCM data to be the same shape as what was used
+   to create the regression coefficients. The rest is simple.
+   A separate function (RDataToNetCDF.r) takes the predictions and 
+   stuffs them into the expected netCDF format for the dataportal people.
+
+
+Tuesday Nov 28th:
+Should try to rerun - starting at #2.
+Should try to get 'raw' prism data into appropriate netcdf files.
+Confirm that both prism and GCM data are in same units for prediction.
+
+Wednesday 29 Nov:
+consistent units helped a lot -- at least the data bounds are reasonable.
+There are still artifacts from the regression -- not sure the regression
+is what we think it is. The sanity-check block in GenerateCoeffs.r 
+I cannot recreate any month other than month==1 ... arghhh.
+
+Thursday 30 Nov:
+The sanity-check bug was entirely in the sanity check code - I was pairing up
+the residuals from the second january with the second month in the data (i.e. Feb).
+Doh!
+
+I need to run the regression through a 'constant' field and see what happens,
+as well as a field with 'sharp' edges. Need to prove that what we think is
+happening is what is happening.
+
+As it stands now, the regression is believed to be correct but not 
+worthwhile because of the strong artifacts from adjacent prism cells 
+relying on distant gcm data - giving a distinct (albeit cool) 
+checkerboard look.  The next attempt will be to interpolate the 
+GCM-from-prism data to the prism location for each of the 111*12 
+downscaled prism fields and perform the regression for each prism 
+location with its own 'xtemp' vector
+
+xg = gcmgrid[,1:2]
+nc = open.ncdf("/ptmp/thoar/downscaling/prism100/prismaggregated_tave_1910_1919.nc")
+alldata = get.var.ncdf(nc,'tave')
+dim(alldata) [1]  41  19 120
+yg = alldata[,,1]
+dim(yg) [1] 41 19
+dim(xg) [1] 779   2
+yg = c(yg)
+length(yg) [1] 779
+quilt.plot(xg,yg)
+image(alldata[,,1],col=tim.colors())
+splinefit = Tps(xg,yg)
+
+Ysanity = predict(splinefit,x=xg,lambda=0)
+quilt.plot(xg,Ysanity)
+US(add=TRUE,shift=TRUE)
+
+psurf = predict.surface(splinefit,lambda=0)
+image.plot(psurf)
+psurf = predict.surface(splinefit,grid=list(x=prismlons,y=prismlats),lambda=0)
+US(add=TRUE,shift=TRUE)
+
+
+
+ndevices = length(dev.list())
+if (ndevices < 3){ for (idev in (ndevices+1):3) x11() }
+
+load('/fs/image/home/thoar/downscaling/downscale_tmax_2000_2000.RData.1degree')
+ddata1 = ddata
+load('/fs/image/home/thoar/downscaling/downscale_tmax_2000_2000.RData.273')
+ddata273 = ddata
+rm(ddata)
+
+dev.set(2)
+image.plot(ddata1$parentlons,ddata1$parentlats,ddata1$parentdata[,,1])
+title('Surface Temperatures from a GCM -- 41*19=779 locations ~156km sep')
+US(add=TRUE,shift=TRUE)
+
+dev.set(3)
+image.plot(ddata1$lons,ddata1$lats,matrix(ddata1$predictions[,1],nrow=1405))
+title('Tmax predictions for a constant 1.0 degree field -- 1405*621=872505')
+
+dev.set(4)
+image.plot(ddata273$lons,ddata273$lats,matrix(ddata273$predictions[,1],nrow=1405))
+title('Tmax predictions for a constant 273 degree field -- 4.6km')
+
+
+# 13 Feb 2007
+New strategy:
+1) Aggregate the prism data to the GCM-like resolution. AggregatePrism.lsf
+   ncrcat prismaggregated_tave_????_????.nc PrismAggregated_tave_1895_2005.nc
+   ==> /ptmp/thoar/downscaling/prism100/PrismAggregated_tave_1895_2005.nc
+2) Use a spline interpolation on that dataset to interpolate to the prediction
+   grid. Do we want to put out a 'mask'?
+   We can do this decade-by-decade and do it in parallel.
+3) using the original prism data and the spline interpolation - generate
+   regression coefficients for each prediction location.
+4) Use a spline interpolation for the GCM data to the prediction grid.
+5) Use the regression coefficients from (3) to downscale (4).
+
+# 9 Mar 2007
+Coral back up.
+1) Need to ensure the 'tave' has long_name atts, etc.
+2) The raw data is not in the netCDF file
+3) convert from degrees C to degrees K
+4) Run end-to-end on another dataset.
+
+
+# 6 Apr 2007 - production runs:
+run1 = [16117.66 3821 5116 0;
+        16064.72 3789 5235 0;
+        16071.53 3808 5079 0;
+        16121.36 3770 5217 0;
+        16322.74 3812 5221 0;
+        15459.00 3814 4849 2;
+        16089.12 3626 4817 0;
+        16138.88 3736 5111 0;
+        16083.48 3815 5218 0;
+        15933.61 3765 5249 0];
+
+# 29 May 2007
+Working on precip dataset.
+PRISM precip is monthly total precip in mm*100
+GCM precip is monthly total flux ... in kg m-2 s-1.
+Gary Strand's formula:
+"Take the original values in kg m-2 s-1, multiply by s month-1 
+(either 28, 30, or 31 * 24 * 3600) to get mm month-1. 
+Multiply by 100 to get mm*100 month-1.
+
+(Note that dividing the original values by the density of 
+water (1000 kg m-3) gives m s-1, and multiplying by 1000 
+gives mm s-1 - the numerical values of these two steps cancel.)"
+
+Olga's formula:
+"... kg/m2/s by 86400 x NN days/month, the result will be in mm/month 
+(equivalent to total monthly precipitation in mm, no longer a flux)."
+
+So that seems to be in agreement.
+
+# 29 Aug 2007
+/ptmp/thoar/downscaling/PR/README explains the gcm precip files.
+/ptmp/thoar/downscaling/PR/pr_A1_*.nc has:
+float pr(time, lat, lon) ;
+        pr:comment = "Created using NCL code CCSM_atmm_2cf.ncl on\n",
+                " machine mineral.cgd.ucar.edu" ;
+        pr:missing_value = 1.e+20f ;
+        pr:_FillValue = 1.e+20f ;
+        pr:cell_methods = "time: mean (interval: 1 month)" ;
+        pr:history = "(PRECC+PRECL)*r[h2o]" ;
+        pr:original_units = "m-1 s-1" ;
+        pr:original_name = "PRECC, PRECL" ;
+        pr:standard_name = "precipitation_flux" ;
+        pr:units = "kg m-2 s-1" ;
+        pr:long_name = "precipitation_flux" ;
+        pr:cell_method = "time: mean" ;
+/ptmp/thoar/downscaling/prism100/prism_1895_2005_ppt.nc has:
+float ppt(time, lat, lon) ;
+        ppt:units = "mm*100" ;
+        ppt:missing_value = -999.f ;
+        ppt:long_name = "precipitation" ;
+        ppt:cell_methods = "time: total (interval: 1 month)" ;
+        ppt:cell_method = "time: total" ;
+
+
+Steps:
+0) prismNetCDFppt.lsf converts monthly prism data to netCDF.
+   ppt_att_edit.lsf  changes the attributes of the initial prism ppt
+   files to be similar to that above ...
+
+   logppt = log(ppt)
+   expppt = exp(logppt)
+
+1) aggregate prism to gcm-like resolution: 
+   AggregatePrism.lsf creates aggregated_ppt_YYYY_YYYY.[RData,nc]
+   Prism2gcmRData.r does all the work. Will work in total precip ... 
+   so no conversion is necessary.
+
+2) Lowres2Hires.lsf converts prismaggregated_var_YYYY_YYYY.nc -> 
+                             splined_var_YYYY_YYYY.[RData,nc]
+
+3) generate regression coefficients:
+   Should convert precip amounts to log() or something to 
+   get a more gaussian distribution.
+
+   GenerateCoeffsByLon.lsf uses GenerateCoeffsByLon.r Converts chunks of latitude bands,
+
+   GatherCoeffs.lsf uses GatherCoeffs.r and then CoeffRDatatoNetCDF.r
+   to create one file with all the coefficients.
+
+4) DownscaleEvery.lsf
+
+# Fri Sep 14 15:09:23 MDT 2007
+Exploring the banding in the RMSE fields.
+Also - exploring the RMSE fields in general. I had a mistake in the logic calculating the RMSE,
+I did not truncate to zero after fitting the linear model. The job to recalculate the RMSE
+(GenerateCoeffsByLon.lsf) is in the machine. GatherCoeffs.lsf is scheduled to run Saturday night.
+Must manually ncrcat those coeffs together into one ...
+Doug suggested a scatterplot of RMSE vs mean to see if locations with 
+high RMSE have low precip - have not acted on that yet.
+Have turned the crank on DownscaleEvery.lsf, so progress should proceed nicely after that.
+Really need to identify the banding in the RMSE fields before 'blessing' the result.
+Vacation ....
+
+# Thu Sep 20 16:45:48 MDT 2007
+Back from vacation, fired off new DownscaleEvery.lsf. Still exploring banding in RMSE
+fields. Individually explore prism variance and aggregated ... then splined ... 
+There seem to be more bands than chunks defined in GenerateCoeffsByLon.lsf. Might need
+to rotate dataset and process that way to see if bands change orientation or not.
+
+# Thu Oct 11 11:56:42 MDT 2007
+'finished' exploring the striping artifact in the std(Prism-Yhat) fields. It is
+an artifact of the aggregation to the GCM resolution. A simple block-average where
+the block is 1 GCM grid cell centered on the GCM location estimates the center of
+the GCM better than the edges, so any trend in the underlying field means that
+the edges are estimated less precisely than the centers. Increasing the 
+block size to be twice as large in each direction (i.e. 4x larger overall)
+provides a much smoother estimate and there is no visible artifacts in
+the std(Prism-YHat2) fields.  The real question is how to match the 'nature' 
+of the GCM fields with much more densely observed PRISM data. Open research
+question. 
+
+What remains is that the original GCM data are in precip fluxes, and are variables
+named 'pr'. Must predict and convert in 'ppt' and back-transform to 'pr' to 
+store in the netCDF files for the GIS server.
+
