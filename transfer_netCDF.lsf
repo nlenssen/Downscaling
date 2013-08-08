@@ -25,15 +25,17 @@
 #
 #----------------------------------------------------------------------
 
-cd /ptmp/thoar/downscaling
+cd  /glade/p/work/lenssen/output/downscaling/TAS/
 
-set GCMDIR = 'PR'
-set GCMVAR = 'pr'
-set PRISMVAR = 'ppt'
+set GCMDIR = 'TAS'
+set GCMVAR = 'tas'
+set PRISMVAR = 'tave'
 
-set ORGDIR = /ptmp/thoar/downscaling/${GCMDIR}
-set    EXP =  A1.20C3M_8.CCSM.atmm
-set  FBASE = ${EXP}.1870-01_cat_1999-12
+set ORGDIR = /glade/p/work/lenssen/AR5/${GCMDIR}
+set    EXP = Amon_CCSM4
+set    ENS = rcp26
+set    MEM = 1
+set  FBASE = ${EXP}_${ENS}_r${MEM}i1p1_200601-210012
 
 #----------------------------------------------------------------------
 # Remove the bnds "units" attribute which is apparently causing difficulties
