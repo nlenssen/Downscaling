@@ -25,8 +25,8 @@ TPSAggregation <- function(prismlons,prismlats,prismtime,gcmgrid,Ngridcells,
 
 
    # Initialize the aggStats object
-   xdim <- length(loninds)
-   ydim <- length(latinds)
+   xdim <- length(gcmloninds)
+   ydim <- length(gcmlatinds)
    stats <- list(mmeans = array(NA, dim=c(xdim,ydim,12)),
 		 msds   = array(NA, dim=c(xdim,ydim,12)),
                  mmin   = array(NA, dim=c(xdim,ydim,12)),
@@ -111,10 +111,10 @@ TPSAggregation <- function(prismlons,prismlats,prismtime,gcmgrid,Ngridcells,
    for(t in 1:12){
       for(i in 1:xdim){
 	 for(j in 1:ydim){
-	    stats$mmeans[i,j,t] <- mean(prismAdj[i,j,timeindex==t],na.rm=T)
-            stats$msds  [i,j,t] <-   sd(prismAdj[i,j,timeindex==t],na.rm=T)
+	    stats$mmeans[i,j,t] <- mean(tempArray[i,j,timeindex==t],na.rm=T)
+            stats$msds  [i,j,t] <-   sd(tempArray[i,j,timeindex==t],na.rm=T)
 	    
-	    quant <- quantile(prismAdj[i,j,timeindex==t])
+	    quant <- quantile(tempArray[i,j,timeindex==t],na.rm=T)
             stats$mmin[i,j,t] <- quant[1]
 	    stats$m25 [i,j,t] <- quant[2]
 	    stats$mmed[i,j,t] <- quant[3]
