@@ -42,13 +42,13 @@ set  FBASE = ${EXP}_${ENS}_r${MEM}i1p1_200601-210012
 # for the GIS crowd.
 #----------------------------------------------------------------------
 
-foreach FILE ( ${PRISMVAR}_${EXP}.*.downscaled.nc )
+foreach FILE ( ${GCMVAR}_${EXP}*.downscaled.nc )
    ncatted -a units,bnds,d,c,"" ${FILE}
    ncatted -O -h -a history,global,o,c," " ${FILE}
 end
 
-ncrcat ${PRISMVAR}_${EXP}.*.downscaled.nc ${PRISMVAR}_${EXP}.nc
-mv     ${PRISMVAR}_${EXP}.nc ${PRISMVAR}_${FBASE}.downscaled.nc
+ncrcat ${GCMVAR}_${EXP}*.downscaled.nc ${GCMVAR}_${EXP}.nc
+mv     ${GCMVAR}_${EXP}.nc ${GCMVAR}_${FBASE}.downscaled.nc
 
 #----------------------------------------------------------------------
 # Extract and then append the time_bnds array and all the original metadata
@@ -56,6 +56,8 @@ mv     ${PRISMVAR}_${EXP}.nc ${PRISMVAR}_${FBASE}.downscaled.nc
 
 ncks -v time_bnds ${ORGDIR}/${GCMVAR}_${FBASE}.nc ${GCMVAR}_${EXP}.time_bnds.nc
 
+
+# Currently this step is trouble. There is no 
 ncrename -a table_id,CCSM_table_id \
          -a title,CCSM_title \
          -a institution,CCSM_institution \
@@ -73,4 +75,4 @@ ncrename -a table_id,CCSM_table_id \
 
 ncatted -O -h -a history,global,o,c,"preserving history from original CCSM data\n" ${GCMVAR}_${EXP}.time_bnds.nc
 
-ncks -A ${GCMVAR}_${EXP}.time_bnds.nc ${PRISMVAR}_${FBASE}.downscaled.nc
+ncks -A ${GCMVAR}_${EXP}.time_bnds.nc ${GCMVAR}_${FBASE}.downscaled.nc
