@@ -387,7 +387,7 @@ for (i in 1:ntimes){
    #  }
 
    } else {
-      val$data[,,i] = psurf*m + b
+      val$data[,,i] = psurf*m + b + offset
    }
 
 }

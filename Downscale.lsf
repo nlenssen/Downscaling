@@ -3,12 +3,10 @@
 # $Id: Downscale.lsf,v 1.8 2008/05/02 15:45:37 thoar Exp $
 #
 #BXXX -b 17:00
-#BSUB -J "downscale[1-16]"
-#BXXX -J "downscale[1-13]"
+#BSUB -J "downscale[1-19]"
 #BXXX -J "downscale[1]"
 #BSUB -o downscale.%J.%I.log
-#BSUB -q regular
-#BXXX -q geyser
+#BSUB -q geyser
 #BSUB -N -u ${USER}@ucar.edu
 #BSUB -n 1
 #BSUB -W 7:00
@@ -51,11 +49,13 @@ endif
 # Set up the arrays that will be exploited by the Job Array ID 
 #----------------------------------------------------------------------
 
-set startyears = ( 1850 1860 1870 1880 1890 1900 1910 1920 \
-		   1930 1940 1950 1960 1970 1980 1990 2000 )
+set startyears = ( 2006 2011 2016 2021 2026 2031 2036 2041 \
+		   2046 2051 2056 2061 2066 2071 2076 2081 \
+		   2086 2091 2096  )
 
-set   endyears = ( 1859 1869 1879 1889 1899 1909 1919 1929 \
-		   1939 1949 1959 1969 1979 1989 1999 2005 )
+set   endyears = ( 2010 2015 2020 2025 2030 2035 2040 2045 \
+		   2050 2055 2060 2065 2070 2075 2080 2085 \
+		   2090 2095 2100  )
 
 set year1 = $startyears[$TASKID]
 set yearN = $endyears[$TASKID]   
@@ -70,9 +70,9 @@ set   gcmvar = tas
 
 # setenv ddir /glade/u/home/lenssen/downscaling/gcm
 # setenv ddir /glade/u/home/lenssen/downscaling/TAS
-  setenv ddir /glade/p/work/lenssen/AR5
+  setenv ddir /glade/p/work/lenssen/AR5/TAS
 
-set lrfname = ${gcmvar}_Amon_CCSM4_historical_r1i1p1_185001-200512.nc
+set lrfname = ${gcmvar}_Amon_CCSM4_rcp26_r1i1p1_200601-210012.nc
 
 
 echo "working on $lrfname decade ${TASKID} at "`date`
@@ -85,8 +85,9 @@ echo "running on $HOST in queue ${MYQUEUE}"
 
 set OFNAME = `echo $lrfname | sed -e "s#0280#$year1#"`
 set OFNAME = `echo  $OFNAME | sed -e "s#0509#$yearN#"`
+set OFNAME = ${gcmvar}_Amon_CCSM4_rcp26_r1i1p1_{$year1}_{$yearN}.nc
 #set OFNAME = `echo  $OFNAME | sed -e "s#${gcmvar}_#${prismvar}_#"`
-set YEARARR = "(1850:2005)"
+set YEARARR = "(2006:2100)"
 
 set OUTPUTBASE = ${OFNAME:r}.downscaled
 
@@ -94,7 +95,6 @@ set EXP = $lrfname:r
 set EXP = $EXP:r
 set EXP = $EXP:r
 set EXP = $EXP:r
-set EXP = $EXP:e
 
 #----------------------------------------------------------------------
 # Create a clean temporary directory, work in it, and clean up when done.
@@ -177,6 +177,7 @@ cat << ENDofTask01 >> ${JOBNAME}.${JOBID}.${TASKID}.r
                              file = ofname)
 
 ENDofTask01
+
 #----------------------------------------------------------------------
 # Run the program:
 #----------------------------------------------------------------------
