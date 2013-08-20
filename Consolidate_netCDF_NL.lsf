@@ -1,0 +1,111 @@
+#!/bin/csh
+#
+# $Id: Consolidate_netCDF.lsf,v 1.1 2008/05/02 15:47:10 thoar Exp $
+#----------------------------------------------------------------------
+# LSF options for BSUB
+#
+### -J      job name 
+### -o      output listing filename 
+### -q      queue
+### -N -u   mail this user when job finishes
+### -n      number of processors  (really)
+### -W      wall-clock hours:minutes required
+#
+#----------------------------------------------------------------------
+#
+#BXXX -b 23:30
+#BSUB -J consolidate
+#BSUB -o consolidate.%J.log
+#BSUB -q standby
+#BSUB -N -u ${USER}@ucar.edu
+#BSUB -n 1
+#BSUB -R "span[ptile=1]"
+#BSUB -W 3:00
+#BSUB -m  "cr0128en cr0129en cr0130en cr0131en cr0132en cr0133en cr0134en cr0135en cr0136en cr0137en cr0138en cr0139en cr0140en cr0141en cr0202en cr0201en"
+#
+#----------------------------------------------------------------------
+
+cd /glade/p/work/lenssen/output
+
+set ORGDIR = /glade/p/work/lenssen/AR5/TAS
+set    EXP = tas_Amon_CCSM4
+set  OBASE = ${EXP}_rcp26_r1i1p1_200601-210012
+set  FBASE = ${EXP}FBASE
+
+#----------------------------------------------------------------------
+# Extract and then append the time_bnds array and all the original metadata
+#----------------------------------------------------------------------
+
+# Pulls off only the height so we can get the global attributes
+ncks -v height ${ORGDIR}/${OBASE}.nc ${EXP}.height.nc
+
+ncrename -a .institution,cesm_institution \
+         -a .institute_id,cesm_institute_id \
+         -a .experiment_id,cesm_experiment_id \
+         -a .source,cesm_source \
+         -a .model_id,cesm_model_id \
+         -a .forcing,cesm_forcing \
+         -a .parent_experiment_id,cesm_parent_experiment_id \
+         -a .parent_experiment_rip,cesm_parent_experiment_rip \
+         -a .branch_time,cesm_branch_time \
+         -a .contact,cesm_contact \
+         -a .references,cesm_references \
+         -a .initialization_method,cesm_initialization_method \
+         -a .physics_version,cesm_physics_version \
+         -a .tracking_id,cesm_tracking_id \     
+         -a .acknowledgements,cesm_acknowledgements \
+         -a .resolution,cesm_resolution \
+         -a .forcing_note,cesm_forcing_note \
+         -a .processed_by,cesm_processed_by \
+         -a .processing_code_information,cesm_processing_code_information \
+         -a .product,cesm_product \
+         -a .experiment,cesm_experiment \
+         -a .frequency,cesm_frequency \
+         -a .creation_date,cesm_creation_date \ 
+         -a .history,cesm_history \
+         -a .Conventions,cesm_Conventions \
+         -a .project_id,cesm_project_id \
+         -a .table_id,cesm_table_id \
+         -a .title,cesm_title \
+         -a .parent_experiment,cesm_parent_experiment \
+         -a .modeling_realm,cesm_modeling_realm \
+         -a .realization,cesm_realization \
+         -a .cmor_version,cesm_cmor_version \
+         ${EXP}.height.nc
+
+ncatted -O -h -a history,global,o,c,"preserving history from original CCSM data\n" \
+                             ${EXP}.height.nc
+
+#----------------------------------------------------------------------
+# Remove the bnds "units" attribute which is apparently causing difficulties
+# for the GIS crowd and add the original metadata.
+#----------------------------------------------------------------------
+
+foreach FILE ( tas_A1.PIcntrl_2.CCSM.atmm.600-01_cat_609-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.610-01_cat_619-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.620-01_cat_629-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.630-01_cat_639-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.640-01_cat_649-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.650-01_cat_659-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.660-01_cat_669-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.670-01_cat_679-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.680-01_cat_689-12.downscaled.nc \
+               tas_A1.PIcntrl_2.CCSM.atmm.690-01_cat_699-12.downscaled.nc )
+
+   ncatted       -a units,bnds,d,c,""      ${FILE}
+   ncatted -O -h -a history,global,o,c," " ${FILE}
+   ncks -A ${EXP}.height.nc                ${FILE}
+end
+
+ncrcat tas_A1.PIcntrl_2.CCSM.atmm.600-01_cat_609-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.610-01_cat_619-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.620-01_cat_629-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.630-01_cat_639-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.640-01_cat_649-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.650-01_cat_659-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.660-01_cat_669-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.670-01_cat_679-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.680-01_cat_689-12.downscaled.nc \
+       tas_A1.PIcntrl_2.CCSM.atmm.690-01_cat_699-12.downscaled.nc \
+       ${FBASE}.downscaled.nc
+
