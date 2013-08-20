@@ -57,7 +57,6 @@ mv     ${GCMVAR}_${EXP}.nc ${GCMVAR}_${FBASE}.downscaled.nc
 ncks -v time_bnds ${ORGDIR}/${GCMVAR}_${FBASE}.nc ${GCMVAR}_${EXP}.time_bnds.nc
 
 
-# Currently this step is trouble. There is no 
 ncrename -a table_id,CCSM_table_id \
          -a title,CCSM_title \
          -a institution,CCSM_institution \
