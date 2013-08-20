@@ -29,8 +29,8 @@ cd /glade/p/work/lenssen/output
 
 set ORGDIR = /glade/p/work/lenssen/AR5/TAS
 set    EXP = tas_Amon_CCSM4
+set   INFO = rcp26_r1i1p1
 set  OBASE = ${EXP}_rcp26_r1i1p1_200601-210012
-set  FBASE = ${EXP}FBASE
 
 #----------------------------------------------------------------------
 # Extract and then append the time_bnds array and all the original metadata
@@ -63,7 +63,6 @@ ncrename -a .institution,cesm_institution \
          -a .frequency,cesm_frequency \
          -a .creation_date,cesm_creation_date \ 
          -a .history,cesm_history \
-         -a .Conventions,cesm_Conventions \
          -a .project_id,cesm_project_id \
          -a .table_id,cesm_table_id \
          -a .title,cesm_title \
@@ -77,35 +76,38 @@ ncatted -O -h -a history,global,o,c,"preserving history from original CCSM data\
                              ${EXP}.height.nc
 
 #----------------------------------------------------------------------
+# Concatenate the 19 pieces of data into one final to prepare for metadata
+# merging and processing
+#----------------------------------------------------------------------
+ncrcat  ${EXP}_${INFO}_2006_2010.downscaled.nc \
+	${EXP}_${INFO}_2011_2015.downscaled.nc \
+	${EXP}_${INFO}_2016_2020.downscaled.nc \
+	${EXP}_${INFO}_2021_2025.downscaled.nc \
+	${EXP}_${INFO}_2026_2030.downscaled.nc \
+	${EXP}_${INFO}_2031_2035.downscaled.nc \
+	${EXP}_${INFO}_2036_2040.downscaled.nc \
+	${EXP}_${INFO}_2041_2045.downscaled.nc \
+	${EXP}_${INFO}_2046_2050.downscaled.nc \
+	${EXP}_${INFO}_2051_2055.downscaled.nc \
+	${EXP}_${INFO}_2056_2060.downscaled.nc \
+	${EXP}_${INFO}_2061_2065.downscaled.nc \
+	${EXP}_${INFO}_2066_2070.downscaled.nc \
+        ${EXP}_${INFO}_2071_2075.downscaled.nc \
+        ${EXP}_${INFO}_2076_2080.downscaled.nc \
+        ${EXP}_${INFO}_2081_2085.downscaled.nc \
+        ${EXP}_${INFO}_2086_2090.downscaled.nc \
+        ${EXP}_${INFO}_2091_2095.downscaled.nc \
+        ${EXP}_${INFO}_2096_2100.downscaled.nc \
+	${EXP}_${INFO}_ALL.downscaled.nc
+
+#----------------------------------------------------------------------
 # Remove the bnds "units" attribute which is apparently causing difficulties
 # for the GIS crowd and add the original metadata.
 #----------------------------------------------------------------------
 
-foreach FILE ( tas_A1.PIcntrl_2.CCSM.atmm.600-01_cat_609-12.downscaled.nc \
-               tas_A1.PIcntrl_2.CCSM.atmm.610-01_cat_619-12.downscaled.nc \
-               tas_A1.PIcntrl_2.CCSM.atmm.620-01_cat_629-12.downscaled.nc \
-               tas_A1.PIcntrl_2.CCSM.atmm.630-01_cat_639-12.downscaled.nc \
-               tas_A1.PIcntrl_2.CCSM.atmm.640-01_cat_649-12.downscaled.nc \
-               tas_A1.PIcntrl_2.CCSM.atmm.650-01_cat_659-12.downscaled.nc \
-               tas_A1.PIcntrl_2.CCSM.atmm.660-01_cat_669-12.downscaled.nc \
-               tas_A1.PIcntrl_2.CCSM.atmm.670-01_cat_679-12.downscaled.nc \
-               tas_A1.PIcntrl_2.CCSM.atmm.680-01_cat_689-12.downscaled.nc \
-               tas_A1.PIcntrl_2.CCSM.atmm.690-01_cat_699-12.downscaled.nc )
+set FILE = ${EXP}_${INFO}_ALL.downscaled.nc
 
-   ncatted       -a units,bnds,d,c,""      ${FILE}
-   ncatted -O -h -a history,global,o,c," " ${FILE}
-   ncks -A ${EXP}.height.nc                ${FILE}
-end
-
-ncrcat tas_A1.PIcntrl_2.CCSM.atmm.600-01_cat_609-12.downscaled.nc \
-       tas_A1.PIcntrl_2.CCSM.atmm.610-01_cat_619-12.downscaled.nc \
-       tas_A1.PIcntrl_2.CCSM.atmm.620-01_cat_629-12.downscaled.nc \
-       tas_A1.PIcntrl_2.CCSM.atmm.630-01_cat_639-12.downscaled.nc \
-       tas_A1.PIcntrl_2.CCSM.atmm.640-01_cat_649-12.downscaled.nc \
-       tas_A1.PIcntrl_2.CCSM.atmm.650-01_cat_659-12.downscaled.nc \
-       tas_A1.PIcntrl_2.CCSM.atmm.660-01_cat_669-12.downscaled.nc \
-       tas_A1.PIcntrl_2.CCSM.atmm.670-01_cat_679-12.downscaled.nc \
-       tas_A1.PIcntrl_2.CCSM.atmm.680-01_cat_689-12.downscaled.nc \
-       tas_A1.PIcntrl_2.CCSM.atmm.690-01_cat_699-12.downscaled.nc \
-       ${FBASE}.downscaled.nc
-
+ncatted       -a units,bnds,d,c,""      ${FILE}
+ncatted -O -h -a history,global,o,c," " ${FILE}
+ncks -A ${EXP}.height.nc                ${FILE}
+rm ${EXP}.height.nc
