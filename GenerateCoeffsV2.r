@@ -52,12 +52,12 @@ nlatsindarray = (1:nlats)
 # retain the original GCM numbering [288,192]
 #---------------------------------------------------------------------
 
-gcmfname = "ppt_Amon_CCSM4_rcp26_r1i1p1_200601-210012.nc"
+gcmfname = "TAS/tas_Amon_CCSM4_rcp26_r1i1p1_200601-210012.nc"
 gcmnc    = open.ncdf(paste(ddir,gcmfname,sep="/"))
 gcmlons  = get.var.ncdf(gcmnc, "lon") 
 gcmlats  = get.var.ncdf(gcmnc, "lat")
 gcmtimes = get.var.ncdf(gcmnc, "time")
-gcmunits = att.get.ncdf(gcmnc, "ppt", "units")$value
+gcmunits = att.get.ncdf(gcmnc, "tas", "units")$value
 close.ncdf(gcmnc)
 
 ngcmlons = length(gcmlons)
