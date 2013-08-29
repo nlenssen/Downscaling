@@ -3,8 +3,8 @@
 # $Id: Downscale.lsf,v 1.8 2008/05/02 15:45:37 thoar Exp $
 #
 #BXXX -b 17:00
-#BSUB -J "downscale[1-19]"
-#BXXX -J "downscale[1]"
+#BXXX -J "downscale[1-19]%5"
+#BSUB -J "downscale[1]"
 #BSUB -o downscale.%J.%I.log
 #BSUB -q geyser
 #BSUB -N -u ${USER}@ucar.edu
@@ -89,7 +89,7 @@ set OFNAME = ${gcmvar}_Amon_CCSM4_rcp26_r1i1p1_{$year1}_{$yearN}.nc
 #set OFNAME = `echo  $OFNAME | sed -e "s#${gcmvar}_#${prismvar}_#"`
 set YEARARR = "(2006:2100)"
 
-set OUTPUTBASE = ${OFNAME:r}.downscaled
+set OUTPUTBASE = ${OFNAME:r}_downscaled
 
 set EXP = $lrfname:r
 set EXP = $EXP:r
@@ -174,7 +174,9 @@ cat << ENDofTask01 >> ${JOBNAME}.${JOBID}.${TASKID}.r
    ofname = paste(fbase,".nc",sep="")
    bob = SimpleRDataToNetCDF(vrbl = ddata,
                              ddir = ".",
-                             file = ofname)
+                             file = ofname,
+			     RCP = "RCP 2.6",
+			     timeperiod = "2006-2100")
 
 ENDofTask01
 

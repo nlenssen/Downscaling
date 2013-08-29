@@ -2,7 +2,9 @@
                              ddir="/project/gsp/thoar/downscaling",
                              file,
                              fbase="prismaggregated",hascalendar=TRUE,
-                             unlim=TRUE)
+                             unlim=TRUE,
+			     RCP = "RCP 2.6",
+			     timeperiod = "2006-2100")
 {
 #
 #   $Id: SimpleRDataToNetCDF.r,v 1.14 2007/10/17 21:35:25 thoar Exp $
@@ -52,7 +54,7 @@ cat("Setting up dimensions and variables ...\n")
 dim1 = dim.def.ncdf("lon"      ,"degrees_east"       , vrbl$lons)
 dim2 = dim.def.ncdf("lat"      ,"degrees_north"      , vrbl$lats)
 dim3 = dim.def.ncdf("bnds"     ,"indexical"          ,    (1:2))
-dim4 = dim.def.ncdf("time"     ,vrbl$timeunits       , vrbl$time, unlim)
+dim4 = dim.def.ncdf("time"     ,vrbl$timeunits       , vrbl$time, unlim=T)
 dim5 = dim.def.ncdf("parentlons","degrees_east"      , vrbl$parentlons)
 dim6 = dim.def.ncdf("parentlats","degrees_north"     , vrbl$parentlats)
 
@@ -83,18 +85,45 @@ if ( is.null(vrbl$parentdata)){
 
 cat("Filling Attributes ...\n")
 
-if (! is.null(vrbl$coeffname)){
-   att.put.ncdf( newnc,0, "CoefficientFileName",vrbl$coeffname)
+att.put.ncdf( newnc,0,"title","Statistially downscaled climate data")
+if(ddata$varunits == "mm"){
+   outvar <- "precipitation amount"
+   keywords <- "Atmosphere > Precipitation > Precipitation Amount"
+} else{
+   outvar <- "surface air temperature"
+   keywords <- "Atmosphere > Atmospheric Temperature > Air Temperature"
 }
+
+summarytxt <- sprintf("The data show monthly average %s for the period (%s) for %s.",
+		      outvar,timeperiod,RCP)
+att.put.ncdf( newnc,0,"summary",summarytxt)
+att.put.ncdf( newnc,0,"keywords",keywords)
+att.put.ncdf( newnc,0,"keywords_vocabulary","NASA/Global Change Master Directory (GCMD) Earth Science Keywords.  Version 8.0.0.0.0")
+att.put.ncdf( newnc,0,"source","Statistical downscaled product from CCSM3.0, version beta 19 (2004): atmosphere:  CAM3.0, T85.  The downscaled method was produced by Tim Hoar and Dough Nychka at NCAR/IMAGE.")
+att.put.ncdf( newnc,0,"date_created",date())
+att.put.ncdf( newnc,0,"institution","National Center for Atmospheric Research")
+att.put.ncdf( newnc,0,"project","GIS Program, GIS Climate Change Scenarios Portal")
+att.put.ncdf( newnc,0,"date_modified",date())
+att.put.ncdf( newnc,0,"date_issued",date())
+att.put.ncdf( newnc,0,"acknowledgment","http://www2.cesm.ucar.edu/")
+att.put.ncdf( newnc,0,"license","The data and information contained in this report is intended for research purposes only.  It is provided \"as is\" and without representations or warranties of any kind")
+att.put.ncdf( newnc,0,"publisher_name","NCAR GIS Program")
+att.put.ncdf( newnc,0,"publisher_email","GISSupport@ucar.edu")
+att.put.ncdf( newnc,0,"publisher_url","https://gis.ucar.edu/")
+att.put.ncdf( newnc,0,"program_info","The Geographic Information Systems (GIS) Program at the National Center for Atmospheric Research (NCAR) is an interdisciplinary effort to foster collaborative science, spatial data interoperability, and knowledge sharing with GIS. The main goal of the GIS Program is to promote and support the use of GIS as both an analysis, and an infrastructure tool in atmospheric research and to address broader issues of spatial data management, interoperability, and geoinformatics within the geosciences.  Working in collaboration with other NCAR strategic initiatives, divisions, and UCAR programs (such as Unidata, CDP, IMAGe, CGD, ISSE and RAL), we support variety of science projects at NCAR, make atmospheric data sets compatible with GIS tools, create bridges between atmospheric, geo- and social sciences, enable users to access, integrate and manage spatial information, and communicate science outcomes to the community of GIS users and the stakeholders.")
+att.put.ncdf( newnc,0,"data_disclaimer","The data and information contained in this report is intended for research purposes only. It is provided \"as is\" and without representations or warranties of any kind, either expressed or implied. All representations and warranties are disclaimed, including, but not limited to, the implied warranties of merchantability and fitness for a particular purpose.  Experience has proven that the timeliness, resolution and manner in which data from these types of reports/models is used does not wholly support the effective or reliable use of the data in making decisions of an immediate or short term nature that involve the safety of people or property. The user assumes all risk as to the use of the data and/or information. In no event will UCAR, or any other party who has been involved in the creation, production or display of this data/information, be liable for damages, whether direct, special, indirect, incidental, or consequential, including loss of profits.")
 att.put.ncdf( newnc,0,"PrismDataSource","PRISM Group, Oregon State University")
 att.put.ncdf( newnc,0,"PrismDataURL","http://www.ocs.orst.edu/prism/")
 att.put.ncdf( newnc,0,"PrismDataOrigin","ftp.ncdc.noaa.gov/pub/data/prism100")
 att.put.ncdf( newnc,0,"PrismDataRetrievalDate1_1895_1997","30 Aug 2006")
 att.put.ncdf( newnc,0,"PrismDataRetrievalDate2_1998_2005","20 Oct 2006")
 att.put.ncdf( newnc,0,"ParentDataFileName",vrbl$parentfname)
-att.put.ncdf( newnc,0,"netCDFCreatedBy","Tim Hoar - thoar@ucar.edu")
-att.put.ncdf( newnc,0,"CreationDate",date())
-
+att.put.ncdf( newnc,0,"creator_name","Doug Nychka -NCAR IMAGe")
+att.put.ncdf( newnc,0,"creator_url","http://www2.image.ucar.edu/")
+att.put.ncdf( newnc,0,"creator_email","nychka@ucar.edu")
+if (! is.null(vrbl$coeffname)){
+   att.put.ncdf( newnc,0, "CoefficientFileName",vrbl$coeffname)
+}
 att.put.ncdf( newnc,"lat","axis","Y")
 att.put.ncdf( newnc,"lat","standard_name","latitude")
 att.put.ncdf( newnc,"lat","bounds","lat_bnds")

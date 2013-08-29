@@ -98,7 +98,7 @@ ncrcat  ${EXP}_${INFO}_2006_2010.downscaled.nc \
         ${EXP}_${INFO}_2086_2090.downscaled.nc \
         ${EXP}_${INFO}_2091_2095.downscaled.nc \
         ${EXP}_${INFO}_2096_2100.downscaled.nc \
-	${EXP}_${INFO}_ALL.downscaled.nc
+	${EXP}_${INFO}_2006_2100.downscaled.nc
 
 #----------------------------------------------------------------------
 # Remove the bnds "units" attribute which is apparently causing difficulties
