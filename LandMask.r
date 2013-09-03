@@ -48,6 +48,7 @@ prismLandIndicator <- !is.na(tempPrism)
 prismLocLand <- as.matrix(expand.grid(
                                 prismlons,prismlats))[prismLandIndicator,]
 
+# Build a mask at the parent grid size
 parentmask<- matrix(NA,nrow=47,ncol=27)
 for(i in 1:Ngridcells){
    targetlon = gcmgrid$lon[i]
@@ -76,3 +77,30 @@ for(i in 1:Ngridcells){
 
    parentmask[gcmxi,gcmyj] <- val
 }
+
+# Map back to the prism grid
+prismgrid <- expand.grid(lon = prismlons, lat = prismlats)
+nprismlonconus <- length(prismlons)
+nprismlatconus <- length(prismlats)
+prisminds <- expand.grid(prismxi= (1:nprismlonconus), prismyj = (1:nprismlatconus))
+prismgrid <- cbind(prismgrid,prisminds)
+
+prismmask <- matrix(NA,nrow=nprismlonconus,ncol=nprismlatconus)
+
+for(i in 1:(dim(prismgrid)[1])){
+   x <- prismgrid[i,1]
+   y <- prismgrid[i,2]
+   prismxi <- prismgrid$prismxi[i]
+   prismyj <- prismgrid$prismyj[i]
+
+
+   loninds <- which(min(abs(gcmgrid[,1]-x))==(abs(gcmgrid[,1]-x)))
+   latinds <- which(min(abs(gcmgrid[,2]-y))==(abs(gcmgrid[,2]-y)))
+
+   gcmval <- c(parentmask)[intersect(loninds,latinds)]
+
+   prismmask[prismxi,prismyj] <- gcmval
+
+   
+}
+

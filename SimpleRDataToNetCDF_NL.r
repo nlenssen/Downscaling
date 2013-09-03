@@ -49,11 +49,6 @@ library(ncdf)
 
 missval = -999.
 
-###
-# Sloppy hard coding to attach the land mask to the NetCDF product
-###
-load("/glade/p/work/lenssen/AR5/LandMask.RData")
-
 cat("Setting up dimensions and variables ...\n")
 
 dim1 = dim.def.ncdf("lon"      ,"degrees_east"       , vrbl$lons)
@@ -79,15 +74,13 @@ var5 = var.def.ncdf(vrbl$varname,vrbl$varunits, list(dim1,dim2,dim4), missval, p
 var5 = var.def.ncdf(vrbl$varname,vrbl$varunits, list(dim1,dim2,dim4), missval, prec="single")
 }
 
-var6 <- var.def.ncdf("land_mask","logical",list(dim1,dim2), missval, prec="single")
-
 #fname = sprintf("%s/%s_%s_%d_%d.nc",ddir,fbase,vrbl$varname,vrbl$year1,vrbl$yearN)
 fname = sprintf("%s/%s",ddir,file)
 cat(sprintf("Opening new file %s\n",fname))
 if ( is.null(vrbl$parentdata)){
-   newnc = create.ncdf(fname,list(var1,var2,var3,var5,var6))
+   newnc = create.ncdf(fname,list(var1,var2,var3,var5))
 } else {
-   newnc = create.ncdf(fname,list(var1,var2,var3,var4,var5,var6))
+   newnc = create.ncdf(fname,list(var1,var2,var3,var4,var5))
 }
 
 cat("Filling Attributes ...\n")
@@ -198,10 +191,6 @@ if ( ! is.null(vrbl$varlongname)){
    att.put.ncdf( newnc,  var5, "long_name",vrbl$varlongname)
 }
 
-# fill in the land mask attributes
-att.put.ncdf( newnc, var6, "standard_name", "PRISM Land Mask")
-att.put.ncdf( newnc, var6, "long_name", "PRISM Land Mask")
-
 cat("Filling Variables ...\n")
 
 nlons = length(vrbl$lons)
@@ -229,10 +218,10 @@ put.var.ncdf( newnc, var1, lonedges )
 put.var.ncdf( newnc, var2, latedges )
 put.var.ncdf( newnc, var3, vrbl$timebnds,   start=c(1,1), count=c(2,ntime) )
 if ( ! is.null(vrbl$parentdata)){
-put.var.ncdf( newnc, var4, vrbl$parentdata-273.15, start=start,  count=lrcount    )
+put.var.ncdf( newnc, var4, vrbl$parentdata, start=start,  count=lrcount    )
 }
 put.var.ncdf( newnc, var5, vrbl$data,       start=start,  count=hrcount    )
-put.var.ncdf( newnc, var6, prismmask, start=c(1,1), count=c(nlons,nlats))
+
 cat("Closing netCDF file.\n")
 
 close.ncdf(newnc)
