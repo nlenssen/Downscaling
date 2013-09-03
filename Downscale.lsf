@@ -3,7 +3,7 @@
 # $Id: Downscale.lsf,v 1.8 2008/05/02 15:45:37 thoar Exp $
 #
 #BXXX -b 17:00
-#BSUB -J "downscale[1-19]%10"
+#BSUB -J "downscale[1-19]"
 #BXXX -J "downscale[1]"
 #BSUB -o downscale.%J.%I.log
 #BSUB -q geyser

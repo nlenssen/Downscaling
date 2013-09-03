@@ -16,13 +16,11 @@
 #BXXX -b 23:30
 #BSUB -J consolidate
 #BSUB -o consolidate.%J.log
-#BSUB -q standby
+#BSUB -q geyser 
 #BSUB -N -u ${USER}@ucar.edu
 #BSUB -n 1
-#BSUB -R "span[ptile=1]"
-#BSUB -W 3:00
-#BSUB -m  "cr0128en cr0129en cr0130en cr0131en cr0132en cr0133en cr0134en cr0135en cr0136en cr0137en cr0138en cr0139en cr0140en cr0141en cr0202en cr0201en"
-#
+#BSUB -W 1:00
+#BSUB -P P86850053
 #----------------------------------------------------------------------
 
 cd /glade/p/work/lenssen/output
@@ -79,35 +77,41 @@ ncatted -O -h -a history,global,o,c,"preserving history from original CCSM data\
 # Concatenate the 19 pieces of data into one final to prepare for metadata
 # merging and processing
 #----------------------------------------------------------------------
-ncrcat  ${EXP}_${INFO}_2006_2010.downscaled.nc \
-	${EXP}_${INFO}_2011_2015.downscaled.nc \
-	${EXP}_${INFO}_2016_2020.downscaled.nc \
-	${EXP}_${INFO}_2021_2025.downscaled.nc \
-	${EXP}_${INFO}_2026_2030.downscaled.nc \
-	${EXP}_${INFO}_2031_2035.downscaled.nc \
-	${EXP}_${INFO}_2036_2040.downscaled.nc \
-	${EXP}_${INFO}_2041_2045.downscaled.nc \
-	${EXP}_${INFO}_2046_2050.downscaled.nc \
-	${EXP}_${INFO}_2051_2055.downscaled.nc \
-	${EXP}_${INFO}_2056_2060.downscaled.nc \
-	${EXP}_${INFO}_2061_2065.downscaled.nc \
-	${EXP}_${INFO}_2066_2070.downscaled.nc \
-        ${EXP}_${INFO}_2071_2075.downscaled.nc \
-        ${EXP}_${INFO}_2076_2080.downscaled.nc \
-        ${EXP}_${INFO}_2081_2085.downscaled.nc \
-        ${EXP}_${INFO}_2086_2090.downscaled.nc \
-        ${EXP}_${INFO}_2091_2095.downscaled.nc \
-        ${EXP}_${INFO}_2096_2100.downscaled.nc \
-	${EXP}_${INFO}_2006_2100.downscaled.nc
+ncrcat  ${EXP}_${INFO}_2006_2010_downscaled.nc \
+	${EXP}_${INFO}_2011_2015_downscaled.nc \
+	${EXP}_${INFO}_2016_2020_downscaled.nc \
+	${EXP}_${INFO}_2021_2025_downscaled.nc \
+	${EXP}_${INFO}_2026_2030_downscaled.nc \
+	${EXP}_${INFO}_2031_2035_downscaled.nc \
+	${EXP}_${INFO}_2036_2040_downscaled.nc \
+	${EXP}_${INFO}_2041_2045_downscaled.nc \
+	${EXP}_${INFO}_2046_2050_downscaled.nc \
+	${EXP}_${INFO}_2051_2055_downscaled.nc \
+	${EXP}_${INFO}_2056_2060_downscaled.nc \
+	${EXP}_${INFO}_2061_2065_downscaled.nc \
+	${EXP}_${INFO}_2066_2070_downscaled.nc \
+        ${EXP}_${INFO}_2071_2075_downscaled.nc \
+        ${EXP}_${INFO}_2076_2080_downscaled.nc \
+        ${EXP}_${INFO}_2081_2085_downscaled.nc \
+        ${EXP}_${INFO}_2086_2090_downscaled.nc \
+        ${EXP}_${INFO}_2091_2095_downscaled.nc \
+        ${EXP}_${INFO}_2096_2100_downscaled.nc \
+        temp_downscaled.nc
+
+# clean-up the pieces
+# rm ${EXP}_${INFO}_*_downscaled.*
+
+mv temp_downscaled.nc ${EXP}_${INFO}_2006_2100_downscaled.nc
 
 #----------------------------------------------------------------------
 # Remove the bnds "units" attribute which is apparently causing difficulties
 # for the GIS crowd and add the original metadata.
 #----------------------------------------------------------------------
 
-set FILE = ${EXP}_${INFO}_ALL.downscaled.nc
+set FILE = ${EXP}_${INFO}_2006_2100_downscaled.nc
 
 ncatted       -a units,bnds,d,c,""      ${FILE}
 ncatted -O -h -a history,global,o,c," " ${FILE}
 ncks -A ${EXP}.height.nc                ${FILE}
 rm ${EXP}.height.nc
+mv ${FILE} /glade/p/work/lenssen/output/downscaling/TAS/${FILE}
