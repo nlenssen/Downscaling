@@ -27,15 +27,15 @@ cd /glade/p/work/lenssen/output
 
 set ORGDIR = /glade/p/work/lenssen/AR5/TAS
 set    EXP = tas_Amon_CCSM4
-set   INFO = rcp26_r1i1p1
-set  OBASE = ${EXP}_rcp26_r1i1p1_200601-210012
+set   INFO = rcp85_r6i1p1
+set  OBASE = ${EXP}_rcp60_r6i1p1_200601-210012
 
 #----------------------------------------------------------------------
 # Extract and then append the time_bnds array and all the original metadata
 #----------------------------------------------------------------------
 
 # Pulls off only the height so we can get the global attributes
-ncks -v height ${ORGDIR}/${OBASE}.nc ${EXP}.height.nc
+ncks -v height ${ORGDIR}/${OBASE}.nc ${EXP}_${INFO}.height.nc
 
 ncrename -a .institution,cesm_institution \
          -a .institute_id,cesm_institute_id \
@@ -68,10 +68,10 @@ ncrename -a .institution,cesm_institution \
          -a .modeling_realm,cesm_modeling_realm \
          -a .realization,cesm_realization \
          -a .cmor_version,cesm_cmor_version \
-         ${EXP}.height.nc
+         ${EXP}_${INFO}.height.nc
 
 ncatted -O -h -a history,global,o,c,"preserving history from original CCSM data\n" \
-                             ${EXP}.height.nc
+                             ${EXP}_${INFO}.height.nc
 
 #----------------------------------------------------------------------
 # Concatenate the 19 pieces of data into one final to prepare for metadata
@@ -99,7 +99,8 @@ ncrcat  ${EXP}_${INFO}_2006_2010_downscaled.nc \
         temp_downscaled.nc
 
 # clean-up the pieces
-# rm ${EXP}_${INFO}_*_downscaled.*
+
+rm ${EXP}_${INFO}_*_downscaled.*
 
 mv temp_downscaled.nc ${EXP}_${INFO}_2006_2100_downscaled.nc
 
@@ -112,6 +113,6 @@ set FILE = ${EXP}_${INFO}_2006_2100_downscaled.nc
 
 ncatted       -a units,bnds,d,c,""      ${FILE}
 ncatted -O -h -a history,global,o,c," " ${FILE}
-ncks -A ${EXP}.height.nc                ${FILE}
-rm ${EXP}.height.nc
+ncks -A ${EXP}_${INFO}.height.nc                ${FILE}
+rm ${EXP}_${INFO}.height.nc
 mv ${FILE} /glade/p/work/lenssen/output/downscaling/TAS/${FILE}

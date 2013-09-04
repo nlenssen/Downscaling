@@ -229,7 +229,7 @@ put.var.ncdf( newnc, var1, lonedges )
 put.var.ncdf( newnc, var2, latedges )
 put.var.ncdf( newnc, var3, vrbl$timebnds,   start=c(1,1), count=c(2,ntime) )
 if ( ! is.null(vrbl$parentdata)){
-put.var.ncdf( newnc, var4, vrbl$parentdata-273.15, start=start,  count=lrcount    )
+put.var.ncdf( newnc, var4, vrbl$parentdata, start=start,  count=lrcount    )
 }
 put.var.ncdf( newnc, var5, vrbl$data,       start=start,  count=hrcount    )
 put.var.ncdf( newnc, var6, prismmask, start=c(1,1), count=c(nlons,nlats))

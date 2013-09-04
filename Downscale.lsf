@@ -65,12 +65,12 @@ set yearN = $endyears[$TASKID]
 # lrfname ... "Low Res filename"
 #----------------------------------------------------------------------
 
-set prismvar = tave
-set   gcmvar = tas
+set prismvar = ppt
+set   gcmvar = ppt
 
 # setenv ddir /glade/u/home/lenssen/downscaling/gcm
 # setenv ddir /glade/u/home/lenssen/downscaling/TAS
-  setenv ddir /glade/p/work/lenssen/AR5/TAS
+  setenv ddir /glade/p/work/lenssen/AR5/PPT
 
 set lrfname = ${gcmvar}_Amon_CCSM4_rcp26_r1i1p1_200601-210012.nc
 
